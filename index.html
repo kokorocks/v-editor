@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Simple Video Editor</title>
+  </head>
+  <body>
+    <h1>Video Editor (Client-Side)</h1>
+    <input type="file" id="video-upload" accept="video/*">
+    <button id="start-editing">Edit Video</button>
+    <video id="video-player" controls></video>
+    
+    <script src="https://cdn.jsdelivr.net/npm/ffmpeg.js@0.10.0/ffmpeg.min.js"></script>
+    <script>
+      const videoPlayer = document.getElementById("video-player");
+      const videoUpload = document.getElementById("video-upload");
+      const startEditingBtn = document.getElementById("start-editing");
+
+      let uploadedVideoFile;
+
+      videoUpload.addEventListener("change", (event) => {
+        uploadedVideoFile = event.target.files[0];
+        const videoURL = URL.createObjectURL(uploadedVideoFile);
+        videoPlayer.src = videoURL;
+      });
+
+      startEditingBtn.addEventListener("click", async () => {
+        if (uploadedVideoFile) {
+          const fileReader = new FileReader();
+          fileReader.onload = async function(event) {
+            const buffer = event.target.result;
+            const ffmpeg = FFmpeg.createFFmpeg({ log: true });
+            await ffmpeg.load();
+            ffmpeg.FS("writeFile", "input.mp4", new Uint8Array(buffer));
+
+            // Example: Trim video from 10 seconds to 20 seconds
+            await ffmpeg.run("-i", "input.mp4", "-ss", "00:00:10", "-to", "00:00:20", "-c:v", "libx264", "output.mp4");
+
+            const data = ffmpeg.FS("readFile", "output.mp4");
+            const videoBlob = new Blob([data.buffer], { type: "video/mp4" });
+            const videoURL = URL.createObjectURL(videoBlob);
+
+            videoPlayer.src = videoURL;
+          };
+
+          fileReader.readAsArrayBuffer(uploadedVideoFile);
+        }
+      });
+    </script>
+  </body>
+</html>
