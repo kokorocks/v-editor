@@ -48,3 +48,75 @@
     </script>
   </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Combiner</title>
+</head>
+<body>
+    <h1>Combine Videos</h1>
+    <!-- Video upload input -->
+    <input type="file" id="video-upload" accept="video/*" multiple>
+    <button id="combine-videos">Combine Videos</button>
+    <br>
+    <video id="video-player" controls width="600"></video>
+    <br>
+    <a id="download-link" style="display: none" href="#" download="combined-video.mp4">Download Combined Video</a>
+
+    <script src="https://cdn.jsdelivr.net/npm/ffmpeg.js@0.10.0/ffmpeg.min.js"></script>
+    <script>
+      const videoPlayer = document.getElementById("video-player");
+      const videoUpload = document.getElementById("video-upload");
+      const combineBtn = document.getElementById("combine-videos");
+      const downloadLink = document.getElementById("download-link");
+
+      let uploadedVideos = [];  // Array to hold selected video files
+
+      // When files are uploaded, store them in the uploadedVideos array
+      videoUpload.addEventListener("change", (event) => {
+        uploadedVideos = Array.from(event.target.files);
+      });
+
+      // Combine videos when the button is clicked
+      combineBtn.addEventListener("click", async () => {
+        if (uploadedVideos.length < 2) {
+          alert("Please upload at least two videos.");
+          return;
+        }
+
+        const ffmpeg = FFmpeg.createFFmpeg({ log: true });
+        await ffmpeg.load();
+
+        // Prepare video inputs for FFmpeg
+        const inputFiles = uploadedVideos.map((file, index) => {
+          const fileName = `input${index}.mp4`;
+          ffmpeg.FS("writeFile", fileName, new Uint8Array(await file.arrayBuffer()));
+          return fileName;
+        });
+
+        // Create a file with the names of the video files to be concatenated
+        const concatFileContent = inputFiles.map(file => `file ${file}`).join('\n');
+        ffmpeg.FS('writeFile', 'concat.txt', new TextEncoder().encode(concatFileContent));
+
+        // Run FFmpeg to combine the videos
+        await ffmpeg.run('-f', 'concat', '-safe', '0', '-i', 'concat.txt', '-c:v', 'libx264', '-crf', '23', 'output.mp4');
+
+        // Read the result
+        const data = ffmpeg.FS('readFile', 'output.mp4');
+
+        // Create a Blob and set the download link
+        const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
+        const videoURL = URL.createObjectURL(videoBlob);
+
+        // Show the combined video in the video player
+        videoPlayer.src = videoURL;
+
+        // Enable the download link
+        downloadLink.href = videoURL;
+        downloadLink.style.display = 'inline-block';
+      });
+    </script>
+</body>
+</html>
